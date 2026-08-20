@@ -2,7 +2,7 @@
 
 # Facultad: Facultad de Ingeniería
 
-# Curso: Sistemas / Infraestructura
+# Curso: Sistemas Operativos 
 # Proyecto 1: Desarrollo, Conexión y Gestión de Contenedores en Entornos Virtualizados
 
 El presente proyecto tiene como objetivo principal el diseño e implementación de un
