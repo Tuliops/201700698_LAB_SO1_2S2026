@@ -1,0 +1,44 @@
+====================================================================
+COMANDOS DE COMPILACIÓN, PRUEBA Y LIMPIEZA - MÓDULO KERNEL
+====================================================================
+
+1. COMPILACIÓN DEL MÓDULO
+--------------------------------------------------------------------
+# Navegar a la carpeta del módulo
+cd ~/workspaces/SistemasOperativos1/201700698_LAB_SO1_2S2026/proyecto2/kernel_module
+
+# Limpiar archivos temporales previos
+make clean
+
+# Compilar forzando el kernel release y evitando errores de modpost
+make -C ~/wsl-kernel M=$PWD SHELL=/bin/bash KERNELRELEASE="6.18.33.2-microsoft-standard-WSL2" LOCALVERSION="" KBUILD_MODPOST_WARN=1 modules
+
+
+2. CARGA Y VERIFICACIÓN EN EL KERNEL
+--------------------------------------------------------------------
+# Insertar el módulo compilado en el kernel
+sudo insmod continfo.ko
+
+# Verificar que el módulo está activo en la memoria
+lsmod | grep continfo
+
+# Consultar la salida generada en el sistema de archivos /proc
+cat /proc/continfo_pr2_so1_201700698
+
+# (Opcional) Formatear y validar el JSON generado (requiere jq instalado)
+cat /proc/continfo_pr2_so1_201700698 | jq .
+
+
+3. MONITOREO Y DIAGNÓSTICO
+--------------------------------------------------------------------
+# Revisar los últimos mensajes del kernel producidos por el módulo
+sudo dmesg | tail -n 20
+
+
+4. DESCARGA Y LIMPIEZA
+--------------------------------------------------------------------
+# Retirar el módulo del kernel
+sudo rmmod continfo
+
+# Confirmar que el módulo fue removido correctamente
+lsmod | grep continfo
