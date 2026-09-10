@@ -1,44 +1,61 @@
-====================================================================
-COMANDOS DE COMPILACIÓN, PRUEBA Y LIMPIEZA - MÓDULO KERNEL
-====================================================================
+# Compilar el modulo de kernel
+make
 
-1. COMPILACIÓN DEL MÓDULO
---------------------------------------------------------------------
-# Navegar a la carpeta del módulo
-cd ~/workspaces/SistemasOperativos1/201700698_LAB_SO1_2S2026/proyecto2/kernel_module
+# Compilar e insertar el modulo en el sistema
+make load
 
-# Limpiar archivos temporales previos
+# Probar la lectura del archivo /proc
+make test
+
+# Desmontar el modulo del kernel
+make unload
+
+# Limpiar archivos de compilacion
 make clean
 
-# Compilar forzando el kernel release y evitando errores de modpost
-make -C ~/wsl-kernel M=$PWD SHELL=/bin/bash KERNELRELEASE="6.18.33.2-microsoft-standard-WSL2" LOCALVERSION="" KBUILD_MODPOST_WARN=1 modules
 
 
-2. CARGA Y VERIFICACIÓN EN EL KERNEL
---------------------------------------------------------------------
-# Insertar el módulo compilado en el kernel
+
+#==========  COMANDOS MANUALES DE KERNEL ==========
+# Insertar el modulo manualmente
 sudo insmod continfo.ko
 
-# Verificar que el módulo está activo en la memoria
-lsmod | grep continfo
-
-# Consultar la salida generada en el sistema de archivos /proc
-cat /proc/continfo_pr2_so1_201700698
-
-# (Opcional) Formatear y validar el JSON generado (requiere jq instalado)
-cat /proc/continfo_pr2_so1_201700698 | jq .
-
-
-3. MONITOREO Y DIAGNÓSTICO
---------------------------------------------------------------------
-# Revisar los últimos mensajes del kernel producidos por el módulo
-sudo dmesg | tail -n 20
-
-
-4. DESCARGA Y LIMPIEZA
---------------------------------------------------------------------
-# Retirar el módulo del kernel
+# Remover el modulo manualmente
 sudo rmmod continfo
 
-# Confirmar que el módulo fue removido correctamente
+# Verificar si el modulo está cargado y activo
 lsmod | grep continfo
+
+# Inspeccionar información del modulo (autor, descripción, licencia)
+modinfo continfo.ko
+
+# Ver mensajes del kernel impresos por pr_info() y pr_err()
+sudo dmesg | tail -n 20
+
+# Limpiar el buffer de logs de dmesg para hacer pruebas limpias
+sudo dmesg -c
+
+
+#### ==========  VALIDACIONES Y PURBAS DEL ENDPINT ================
+# Leer directamente el contenido del archivo /proc
+cat /proc/continfo_pr2_so1_201700698
+
+# Validar que la sintaxis JSON sea correcta y ver los primeros procesos
+cat /proc/continfo_pr2_so1_201700698 | jq . | head -n 30
+
+# Filtrar procesos específicos por nombre (ejemplo: buscar 'bash' o 'systemd')
+cat /proc/continfo_pr2_so1_201700698 | jq '.[] | select(.name=="bash")'
+
+# Contar cuántos procesos está detectando el modulo en tiempo real
+cat /proc/continfo_pr2_so1_201700698 | jq '. | length'
+
+
+### ======= Edicion y Cambios = 
+# Abrir el código fuente para editar
+nano continfo.c
+
+# Recompilar y recargar todo en un solo paso tras un cambio
+make clean && make load
+
+# Consultar el kernel en ejecución exacto (útil si preguntan por el entorno)
+uname -r

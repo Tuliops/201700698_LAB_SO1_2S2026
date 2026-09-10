@@ -1,114 +1,125 @@
 /*
 Cabeceras del Kernel (Headers)
 +*/
-#include <linux/module.h>      // Requerido por todos los modulos de kernel
-#include <linux/kernel.h>      // Funciones del kernel como pr_info()
-#include <linux/init.h>        // Macros __init y __exit para gestion de memoria
-#include <linux/proc_fs.h>     // Funciones para crear y eliminar entradas en /proc
-#include <linux/seq_file.h>    // API seq_file para manejo seguro de lectura de datos
-#include <linux/sched/signal.h>// Necesario para iterar procesos con for_each_process()
-#include <linux/sched.h>       // Definicion de la estructura task_struct
-#include <linux/mm.h>          // Calculo de memoria RAM, RSS y VSZ
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#include <linux/sched/signal.h>
+#include <linux/sched/mm.h>
+#include <linux/mm.h>
+#include <linux/sched/cputime.h>
 
+#define PROC_NAME "continfo_pr2_so1_201700698"
 
-// Info del modulo
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Tulio P Sistemas Operativos 1");
-MODULE_DESCRIPTION(" Sistemas Operativos 1 - Registro de procesos y memoria");
-MODULE_VERSION("1.0");
+MODULE_AUTHOR("201700698");
+MODULE_DESCRIPTION("Modulo de Kernel SO1 -  CPU, Memoria y E/S en formato JSON");
 
-// Nombre del Modulo de Procesos de Contenedores
-#define PROC_FILENAME "continfo_pr2_so1_201700698"
-
-/*Funcion que recolecta y genera los datos (continfo_show)*/
-
-/** continfo_show - Callback encargado de iterar sobre el kernel y renderizar metricas en /proc */
-
+/*
+ * Funcion principal que genera la salida en /proc
+ */
 static int continfo_show(struct seq_file *m, void *v) {
-    struct sysinfo sys_info;
     struct task_struct *task;
-    unsigned long total_ram, free_ram, used_ram;
-
-    /* Obtencion de  datos   globales del sistema */
-    si_meminfo(&sys_info);
-
-    /*datos vienen expresados en paginas o unidades de memoria (mem_unit) */
-    total_ram = (sys_info.totalram * sys_info.mem_unit) / (1024 * 1024);
-    free_ram = (sys_info.freeram * sys_info.mem_unit) / (1024 * 1024);
-    used_ram = total_ram - free_ram;
-
-    /* Inicio de estructura JSON */
-    seq_printf(m, "{\n");
-    seq_printf(m, "  \"total_ram_mb\": %lu,\n", total_ram);
-    seq_printf(m, "  \"free_ram_mb\": %lu,\n", free_ram);
-    seq_printf(m, "  \"used_ram_mb\": %lu,\n", used_ram);
-    seq_printf(m, "  \"processes\": [\n");
-
     bool first = true;
 
-    /*  Recorrido de la lista circular de procesos task_struct */
+    seq_puts(m, "[\n");
+
+    /* Bloqueo de lectura RCU para iteracion segura en la lista de procesos */
+    rcu_read_lock();
     for_each_process(task) {
+        unsigned long vsz_pages = 0;
+        unsigned long rss_pages = 0;
+        unsigned long vsz_kb = 0;
+        unsigned long rss_kb = 0;
 
-        /*filtramos para enfocarnos en procesos reales y contenedores.*/
+        u64 utime = 0, stime = 0;
+        u64 total_cpu_jiffies = 0;
+
+        u64 read_bytes = 0;
+        u64 write_bytes = 0;
+
+        /* Validacion de puntero de memoria para omitir hilos de kernel sin mm */
         if (task->mm) {
-            /* Conversion de paginas de memoria a Kilobytes */
-
-            //task->mm->total_vm: Representa el VSZ (Memoria Virtual).
-            unsigned long vsz = task->mm->total_vm << (PAGE_SHIFT - 10);
-            //get_mm_rss(task->mm): Representa el RSS (Memoria Fisica Residente).
-            unsigned long rss = get_mm_rss(task->mm) << (PAGE_SHIFT - 10);
-
-
-            if (!first) seq_printf(m, ",\n");
-            seq_printf(m, "    {\n");
-            seq_printf(m, "      \"pid\": %d,\n", task->pid);
-            seq_printf(m, "      \"name\": \"%s\",\n", task->comm);
-            seq_printf(m, "      \"vsz_kb\": %lu, KB \n", vsz);
-cat /proc/continfo_pr2_so1_201700698 | jq .            seq_printf(m, "      \"rss_kb\": %lu KB \n", rss);
-            seq_printf(m, "    }");
-            first = false;
+            vsz_pages = task->mm->total_vm;
+            rss_pages = get_mm_rss(task->mm);
         }
+
+        /* Conversion de paginas de memoria a Kilobytes */
+        vsz_kb = vsz_pages * (PAGE_SIZE / 1024);
+        rss_kb = rss_pages * (PAGE_SIZE / 1024);
+
+        /* Obtencion del tiempo de CPU en tiempo de usuario y sistema */
+        task_cputime_adjusted(task, &utime, &stime);
+        total_cpu_jiffies = utime + stime;
+
+        /* Obtencion de contadores de entrada y salida de disco */
+#ifdef CONFIG_TASK_IO_ACCOUNTING
+        read_bytes = task->ioac.read_bytes;
+        write_bytes = task->ioac.write_bytes;
+#endif
+
+        if (!first) {
+            seq_puts(m, ",\n");
+        }
+        first = false;
+
+        seq_puts(m, "  {\n");
+        seq_printf(m, "    \"pid\": %d,\n", task->pid);
+        seq_printf(m, "    \"name\": \"%s\",\n", task->comm);
+        seq_printf(m, "    \"cpu_jiffies\": %llu,\n", total_cpu_jiffies);
+
+        /* Formateo dinamico de Memoria Virtual (VSZ) en KB o MB */
+        if (vsz_kb < 1024) {
+            seq_printf(m, "    \"vsz\": \"%lu KB\",\n", vsz_kb);
+        } else {
+            seq_printf(m, "    \"vsz\": \"%lu.%02lu MB\",\n", vsz_kb / 1024, ((vsz_kb % 1024) * 100) / 1024);
+        }
+
+        /* Formateo dinamico de Memoria Residente (RSS) en KB o MB */
+        if (rss_kb < 1024) {
+            seq_printf(m, "    \"rss\": \"%lu KB\",\n", rss_kb);
+        } else {
+            seq_printf(m, "    \"rss\": \"%lu.%02lu MB\",\n", rss_kb / 1024, ((rss_kb % 1024) * 100) / 1024);
+        }
+
+        /* Salida de metricas E/S en bytes */
+        seq_printf(m, "    \"io_read_bytes\": %llu,\n", read_bytes);
+        seq_printf(m, "    \"io_write_bytes\": %llu\n", write_bytes);
+
+        seq_puts(m, "  }");
     }
-    seq_printf(m, "\n  ]\n}\n");
+    rcu_read_unlock();
+
+    seq_puts(m, "\n]\n");
     return 0;
 }
 
-
-
-//Conectar /proc con la API de operaciones (proc_ops)
-
-
 static int continfo_open(struct inode *inode, struct file *file) {
-
-    //Inicializa la estructura seq_file
     return single_open(file, continfo_show, NULL);
 }
 
-/* Enrutamiento de operaciones sobre /proc */
-static const struct proc_ops continfo_fops = {
+static const struct proc_ops continfo_ops = {
     .proc_open    = continfo_open,
     .proc_read    = seq_read,
     .proc_lseek   = seq_lseek,
     .proc_release = single_release,
 };
 
-
-//Inicializacion y Salida del Modulo
-
-/** Constructor ejecutado al usar insmod */
 static int __init continfo_init(void) {
-    // Permiso 0444 = Lectura para todos los usuarios
-    proc_create(PROC_FILENAME, 0444, NULL, &continfo_fops);
-    pr_info("Modulo /proc/%s inicializado con exito.\n", PROC_FILENAME);
+    if (!proc_create(PROC_NAME, 0444, NULL, &continfo_ops)) {
+        pr_err("Error al crear la entrada en /proc/%s\n", PROC_NAME);
+        return -ENOMEM;
+    }
+    pr_info("Modulo continfo cargado correctamente en /proc/%s\n", PROC_NAME);
     return 0;
 }
 
-/** continfo_cleanup - Destructor ejecutado al usar 'rmmod'  */
-static void __exit continfo_cleanup(void) {
-    remove_proc_entry(PROC_FILENAME, NULL);
-    pr_info("Modulo /proc/%s removido del kernel.\n", PROC_FILENAME);
+static void __exit continfo_exit(void) {
+    remove_proc_entry(PROC_NAME, NULL);
+    pr_info("Modulo continfo desinstalado correctamente\n");
 }
 
 module_init(continfo_init);
-module_exit(continfo_cleanup);
-
+module_exit(continfo_exit);
