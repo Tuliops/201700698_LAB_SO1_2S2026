@@ -6,32 +6,18 @@ import (
 	"os"
 )
 
-const ProcFilePath = "/proc/continfo_pr2_so1_201700698"
+const ProcPath = "/proc/continfo_pr2_so1_201700698"
 
-// ReadProcMetrics abre el archivo /proc, lee su contenido completo
-// y deserializa el arreglo JSON en una rebanada (slice) de ProcessMetric.
-func ReadProcMetrics() ([]ProcessMetric, error) {
-	// Comprobar la existencia del archivo antes de abrir
-	if _, err := os.Stat(ProcFilePath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("el archivo de kernel %s no existe. ¿Esta cargado el modulo?", ProcFilePath)
-	}
-
-	// Leer el archivo /proc de forma eficiente
-	data, err := os.ReadFile(ProcFilePath)
+func ReadProcMetrics() (*SystemMetrics, error) {
+	data, err := os.ReadFile(ProcPath)
 	if err != nil {
-		return nil, fmt.Errorf("error al leer %s: %w", ProcFilePath, err)
+		return nil, fmt.Errorf("error leyendo %s: %w", ProcPath, err)
 	}
 
-	if len(data) == 0 {
-		return nil, fmt.Errorf("el archivo %s esta vacio", ProcFilePath)
+	var metrics SystemMetrics
+	if err := json.Unmarshal(data, &metrics); err != nil {
+		return nil, fmt.Errorf("error des-serializando JSON de proc: %w", err)
 	}
 
-	// Deserialización de la estructura JSON
-	var processList []ProcessMetric
-	err = json.Unmarshal(data, &processList)
-	if err != nil {
-		return nil, fmt.Errorf("error al parsear el JSON de /proc: %w", err)
-	}
-
-	return processList, nil
+	return &metrics, nil
 }

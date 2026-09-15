@@ -3,66 +3,63 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
-	"time"
 
 	"daemon-so1/internal/db"
+	"daemon-so1/internal/ebpf"
 	"daemon-so1/internal/kernel"
 	"daemon-so1/internal/runner"
 )
 
-const (
-	PollingInterval     = 20 * time.Second
-	KernelModuleRelPath = "../kernel_module"
-	ValkeyAddr          = "127.0.0.1:6379"
-)
-
 func main() {
 	fmt.Println("==================================================")
-	fmt.Println("    DAEMON DE MONITOREO SO1 - DIA 4 (GO & VALKEY)")
+	fmt.Println("   DAEMON DE MONITOREO SO1 - (GO & VALKEY)")
 	fmt.Println("==================================================")
 
-	execDir, err := os.Getwd()
-	if err != nil {
-		fmt.Printf("[FATAL] No se pudo obtener el directorio actual: %v\n", err)
-		os.Exit(1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// 1. Verificación de módulo Kernel
+	if err := kernel.CheckAndLoadModule(); err != nil {
+		log.Printf("[WARN] Error con el modulo del kernel: %v", err)
 	}
 
-	moduleAbsolutePath := filepath.Join(execDir, KernelModuleRelPath)
-
-	// 1. Cargar Módulo de Kernel
-	if err := kernel.EnsureModuleLoaded(moduleAbsolutePath); err != nil {
-		fmt.Printf("[FATAL] Fallo en la inicializacion del kernel: %v\n", err)
-		os.Exit(1)
+	// 2. Conexión con Valkey
+	valkeyHost := os.Getenv("VALKEY_HOST")
+	if valkeyHost == "" {
+		valkeyHost = "localhost"
+	}
+	valkeyPort := os.Getenv("VALKEY_PORT")
+	if valkeyPort == "" {
+		valkeyPort = "6379"
 	}
 
-	// 2. Conectar con Valkey
-	valkeyClient, err := db.NewValkeyClient(ValkeyAddr)
+	valkeyClient, err := db.NewValkeyClient(fmt.Sprintf("%s:%s", valkeyHost, valkeyPort))
 	if err != nil {
-		fmt.Printf("[WARN] No se pudo conectar con Valkey (%v). Continuando sin persistencia...\n", err)
+		log.Printf("[WARN] No se pudo conectar con Valkey: %v", err)
 	} else {
-		defer valkeyClient.Close()
 		fmt.Println("[+] Conexion con Valkey establecida correctamente.")
 	}
 
-	// 3. Contexto para Graceful Shutdown
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	// 4. Iniciar Bucle Autónomo
-	go runner.RunDaemon(ctx, PollingInterval, valkeyClient)
-
-	<-ctx.Done()
-	fmt.Println("\n[+] Senal de apagado recibida.")
-
-	// 5. Limpieza Final
-	fmt.Println("[+] Limpiando recursos...")
-	if err := kernel.UnloadModule(moduleAbsolutePath); err != nil {
-		fmt.Printf("[WARN] No se pudo remover el modulo: %v\n", err)
+	// 3. Iniciar eBPF Audit
+	if err := ebpf.StartEBPFAudit(ctx, valkeyClient); err != nil {
+		log.Printf("[eBPF WARN] No se pudo iniciar el listener: %v", err)
 	}
 
-	fmt.Println("[+] Daemon finalizado correctamente.")
+	// 4. Iniciar Runner del Daemon en Goroutine
+	go runner.StartDaemon(ctx, valkeyClient)
+
+	// Graceful Shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	<-sigChan
+	fmt.Println("\n[+] Finalizando servicio Daemon...")
+	cancel()
+	if valkeyClient != nil {
+		valkeyClient.Close()
+	}
 }

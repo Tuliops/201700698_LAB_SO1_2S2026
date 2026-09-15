@@ -2,17 +2,14 @@ package db
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"time"
-
-	"daemon-so1/internal/metrics"
+	"log"
 
 	"github.com/valkey-io/valkey-go"
 )
 
 type ValkeyClient struct {
-	client valkey.Client
+	Client valkey.Client
 }
 
 func NewValkeyClient(addr string) (*ValkeyClient, error) {
@@ -20,31 +17,30 @@ func NewValkeyClient(addr string) (*ValkeyClient, error) {
 		InitAddress: []string{addr},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error al conectar con Valkey: %w", err)
+		return nil, fmt.Errorf("error al conectar con valkey en %s: %w", addr, err)
 	}
-	return &ValkeyClient{client: client}, nil
+	return &ValkeyClient{Client: client}, nil
 }
 
-func (v *ValkeyClient) SaveMetrics(ctx context.Context, processes []metrics.ProcessMetric) error {
-	data, err := json.Marshal(processes)
-	if err != nil {
-		return fmt.Errorf("error al serializar metricas para valkey: %w", err)
+// RecordEBPFKillEvent incrementa el contador global en Valkey
+func (v *ValkeyClient) RecordEBPFKillEvent(ctx context.Context, pidTarget uint32, sig int32) error {
+	if v == nil || v.Client == nil {
+		return fmt.Errorf("cliente valkey no inicializado")
 	}
 
-	key := fmt.Sprintf("metrics:%d", time.Now().Unix())
-
-	// CORRECCION: Se pasa time.Hour en lugar del entero 3600
-	err = v.client.Do(ctx, v.client.B().Set().Key(key).Value(string(data)).Ex(time.Hour).Build()).Error()
+	cmd := v.Client.B().Incr().Key("ebpf_kill_total_count").Build()
+	err := v.Client.Do(ctx, cmd).Error()
 	if err != nil {
-		return fmt.Errorf("error al escribir en Valkey: %w", err)
+		log.Printf("[VALKEY ERROR] Fallo al ejecutar INCR: %v", err)
+		return err
 	}
 
-	fmt.Printf("[VALKEY] Metricas guardadas exitosamente bajo la clave: %s\n", key)
+	log.Println("[VALKEY OK] Clave 'ebpf_kill_total_count' incrementada exitosamente.")
 	return nil
 }
 
 func (v *ValkeyClient) Close() {
-	if v.client != nil {
-		v.client.Close()
+	if v != nil && v.Client != nil {
+		v.Client.Close()
 	}
 }

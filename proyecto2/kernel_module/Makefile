@@ -1,38 +1,36 @@
-MODULE_NAME = continfo
-# Ruta absoluta directa hacia tu usuario (evita la resolucion a /root bajo sudo)
-KERNEL_DIR = /home/tj/wsl-kernel
-PROC_FILE = /proc/continfo_pr2_so1_201700698
+obj-m += continfo.o
 
-# Obtener el directorio actual de forma dinamica dentro de Make
-CURRENT_DIR := $(shell pwd)
-
-obj-m += $(MODULE_NAME).o
+KDIR := /home/tj/wsl-kernel
+PWD := $(shell pwd)
+PROC_PATH := /proc/continfo_pr2_so1_201700698
 
 all:
-	make -C $(KERNEL_DIR) M=$(CURRENT_DIR) SHELL=/bin/bash KERNELRELEASE="6.18.33.2-microsoft-standard-WSL2" LOCALVERSION="" KBUILD_MODPOST_WARN=1 modules
+	@echo "[+] Compilando modulo de kernel..."
+	$(MAKE) -C $(KDIR) M=$(PWD) KBUILD_MODPOST_WARN=1 modules
 
 clean:
-	make -C $(KERNEL_DIR) M=$(CURRENT_DIR) clean
+	@echo "[+] Limpiando archivos binarios y temporales..."
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
+	@rm -f *.o *.ko *.mod *.mod.c *.symvers *.order .*.cmd
 
 load: all
-	@if lsmod | grep -q $(MODULE_NAME); then \
-		echo "El modulo ya esta cargado. Removiendo previa version..."; \
-		sudo rmmod $(MODULE_NAME); \
-	fi
-	sudo insmod $(MODULE_NAME).ko
-	@echo "Modulo cargado exitosamente."
+	@echo "[+] Removiendo version previa si esta cargada..."
+	-sudo rmmod continfo 2>/dev/null || true
+	@echo "[+] Cargando modulo de kernel en el sistema..."
+	sudo insmod continfo.ko
+	@echo "[+] Modulo continfo.ko cargado exitosamente."
 
 unload:
-	@if lsmod | grep -q $(MODULE_NAME); then \
-		sudo rmmod $(MODULE_NAME); \
-		echo "Modulo removido correctamente."; \
-	else \
-		echo "El modulo no se encuentra cargado."; \
-	fi
+	@echo "[+] Desmontando modulo de kernel..."
+	-sudo rmmod continfo 2>/dev/null || true
+	@echo "[+] Modulo removido correctamente."
 
+# Regla de prueba rapida para verificar la interfaz /proc
 test:
-	@if [ -f $(PROC_FILE) ]; then \
-		cat $(PROC_FILE) | head -n 30; \
+	@echo "\n=== VERIFICACION DE /proc/continfo_pr2_so1_201700698 ==="
+	@if [ -f $(PROC_PATH) ]; then \
+		echo "[SUCCESS] El archivo proc existe. Mostrando estructura JSON:"; \
+		cat $(PROC_PATH) | head -n 30; \
 	else \
-		echo "Error: El archivo $(PROC_FILE) no existe. Ejecute 'make load' primero."; \
+		echo "[ERROR] El archivo $(PROC_PATH) NO existe. Asegurate de ejecutar 'make load'."; \
 	fi
