@@ -2,8 +2,9 @@ package db
 
 import (
 	"context"
-	"fmt"
-	"log"
+	"encoding/json"
+
+	"daemon-so1/internal/metrics"
 
 	"github.com/valkey-io/valkey-go"
 )
@@ -17,30 +18,30 @@ func NewValkeyClient(addr string) (*ValkeyClient, error) {
 		InitAddress: []string{addr},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error al conectar con valkey en %s: %w", addr, err)
+		return nil, err
 	}
 	return &ValkeyClient{Client: client}, nil
 }
 
-// RecordEBPFKillEvent incrementa el contador global en Valkey
-func (v *ValkeyClient) RecordEBPFKillEvent(ctx context.Context, pidTarget uint32, sig int32) error {
-	if v == nil || v.Client == nil {
-		return fmt.Errorf("cliente valkey no inicializado")
+func (v *ValkeyClient) Close() {
+	if v.Client != nil {
+		v.Client.Close()
 	}
+}
 
-	cmd := v.Client.B().Incr().Key("ebpf_kill_total_count").Build()
-	err := v.Client.Do(ctx, cmd).Error()
+func (v *ValkeyClient) SaveMetricsSnapshot(ctx context.Context, m *metrics.SystemMetrics) error {
+	data, err := json.Marshal(m)
 	if err != nil {
-		log.Printf("[VALKEY ERROR] Fallo al ejecutar INCR: %v", err)
 		return err
 	}
 
-	log.Println("[VALKEY OK] Clave 'ebpf_kill_total_count' incrementada exitosamente.")
-	return nil
+	cmd := v.Client.B().Set().Key("system_metrics").Value(string(data)).Build()
+	return v.Client.Do(ctx, cmd).Error()
 }
 
-func (v *ValkeyClient) Close() {
-	if v != nil && v.Client != nil {
-		v.Client.Close()
-	}
+// RecordEBPFKillEvent registra la auditoría de un evento SIGKILL interceptado por eBPF
+func (v *ValkeyClient) RecordEBPFKillEvent(ctx context.Context, pid uint32, sig int32) error {
+	// Incrementa atómicamente el contador global de eliminaciones para Grafana
+	cmd := v.Client.B().Incr().Key("ebpf_kill_total_count").Build()
+	return v.Client.Do(ctx, cmd).Error()
 }

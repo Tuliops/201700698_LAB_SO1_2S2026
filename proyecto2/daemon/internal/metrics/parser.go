@@ -21,3 +21,10 @@ func ReadProcMetrics() (*SystemMetrics, error) {
 
 	return &metrics, nil
 }
+func ParseProcContent(data []byte) (*SystemMetrics, error) {
+	var metrics SystemMetrics
+	if err := json.Unmarshal(data, &metrics); err != nil {
+		return nil, fmt.Errorf("error deserializando JSON de proc: %w", err)
+	}
+	return &metrics, nil
+}
