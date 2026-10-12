@@ -1,0 +1,35 @@
+# --- RUST ---
+# Ignora toda la carpeta target (contiene ejecutables específicos de cada OS: .exe en Windows, ELF en Linux)
+/api_rust/target/
+**/*.rs.bk
+
+# --- GO ---
+# Ignora binarios compilados de Go para evitar mezclar ejecutables de Windows y Linux
+/go_client/go_client
+/go_client/main
+/go_client/*.exe
+/go_client/bin/
+*.exe
+*.test
+*.prof
+
+# Windows
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# Linux Mint / Ubuntu / GNOME 
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.cache/
+verride
+
+# 
+# IDEs Y EDITORES (VS Code)
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
