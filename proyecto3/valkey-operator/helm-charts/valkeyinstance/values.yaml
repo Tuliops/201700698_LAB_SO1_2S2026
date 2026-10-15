@@ -1,0 +1,26 @@
+# Default values for valkeyinstance.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+
+
+#Config de la imagen del contenedor 
+image:
+  repository: valkey/valkey
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+
+#Config de red interna del server
+service:
+  type: ClusterIP
+  port: 6379
+
+
+# Config de persistencia , evitar perdida de datos 
+persistence:
+  size: 1Gi
+  storageClass: "" #almecenamiento por defecto del cluster

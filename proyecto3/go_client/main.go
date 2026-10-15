@@ -28,10 +28,10 @@ func (s *Server) SendReport(ctx context.Context, req *pb.WarReportRequest) (*pb.
 
 	//Print reporte
 	fmt.Printf("[gRPC Server] ¡Reporte recibido!\n")
-	fmt.Printf("  -> País: %v\n", req.GetCountry())
-	fmt.Printf("  -> Aviones en aire: %d\n", req.GetWarplanesInAir())
-	fmt.Printf("  -> Barcos en agua: %d\n", req.GetWarshipsInWater())
-	fmt.Printf("  -> Timestamp: %s\n", req.GetTimestamp())
+	fmt.Printf("   País: %v\n", req.GetCountry())
+	fmt.Printf("   Aviones en aire: %d\n", req.GetWarplanesInAir())
+	fmt.Printf("   Barcos en agua: %d\n", req.GetWarshipsInWater())
+	fmt.Printf("   Timestamp: %s\n", req.GetTimestamp())
 
 	//Mensaje para enviar a la Cola  RabbitMQ
 	messageBody := fmt.Sprintf(
@@ -55,14 +55,14 @@ func (s *Server) SendReport(ctx context.Context, req *pb.WarReportRequest) (*pb.
 	)
 
 	if err != nil {
-		log.Printf(" Error al publicar mensaje en RabbitMQ: %v", err)
-		return &pb.WarReportResponse{Status: "Error - No se pudo encolar"}, err
+		log.Printf(" [ERROR] al publicar mensaje en RabbitMQ: %v", err)
+		return &pb.WarReportResponse{Status: "[ERROR] - No se pudo agrear a la cola"}, err
 	}
 
 	log.Println(" [RabbitMQ] Reporte encolado exitosamente en la cola:", s.queueName)
 
 	return &pb.WarReportResponse{
-		Status: "Success - Recibido en Go gRPC y encolado en RabbitMQ",
+		Status: "Success - Recibido en Go gRPC y en cola  de RabbitMQ",
 	}, nil
 }
 
@@ -71,14 +71,14 @@ func main() {
 	// Conexion con RabbitMQ
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
-		log.Fatalf("No se pudo conectar con RabbitMQ: %v", err)
+		log.Fatalf("[ERROR]No se pudo conectar con RabbitMQ: %v", err)
 	}
 
 	defer conn.Close()
 
 	ch, err := conn.Channel()
 	if err != nil {
-		log.Fatalf("No se pudo abrir el canal en RabbitMQ: %v", err)
+		log.Fatalf("[ERROR] No se pudo abrir el canal en RabbitMQ: %v", err)
 	}
 	defer ch.Close()
 
@@ -96,15 +96,15 @@ func main() {
 	)
 
 	if err != nil {
-		log.Fatalf("No se pudo declarar la cola en RabbitMQ %v", err)
+		log.Fatalf("[ERROR] No se pudo declarar la cola en RabbitMQ %v", err)
 
 	}
 
-	log.Println("Conectado a RabbitMQ con exito. Cola lista : ", queueName)
+	log.Println("[OK]Conectado a RabbitMQ con exito. Cola lista : ", queueName)
 
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
-		log.Fatalf("[Error] al escuchar el puerto : %v", err)
+		log.Fatalf("[ERROR] al escuchar el puerto : %v", err)
 
 	}
 	grpcServer := grpc.NewServer()
@@ -115,7 +115,7 @@ func main() {
 		queueName:     queueName,
 	})
 
-	log.Println("[ok] Servidor gRPC en go Corriendo y escuchando en el puerto : 50051 ")
+	log.Println("[OK] Servidor gRPC en GO Corriendo y escuchando en el puerto : 50051 ")
 
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("[Error] en el servidor gRPC: %v", err)

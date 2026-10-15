@@ -1,0 +1,17 @@
+apiVersion: cache.sopes1.com/v1alpha1
+kind: ValkeyInstance
+metadata:
+  name: valkeyinstance-sample
+  namespace: default
+spec:
+  replicaCount: 1
+  image:
+    repository: valkey/valkey
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 6379
+  persistence:
+    size: 1Gi
+    storageClass: ""

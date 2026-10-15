@@ -40,7 +40,7 @@ fn parse_country(country_str: &str) -> i32{
 //Funcion que  resive los datos y los procesa
 async fn receive_report(report: web::Json<WarReport>) -> impl Responder {
     println!(
-        "[Rust REST] Reporte recibido de {}! Aviones: {}, Barcos: {}, Hora: {}",
+        "[Rust REST] Reporte recibido de {}! \n Aviones: {},\n Barcos: {},\n Hora: {}\n",
         report.country, report.warplanes_in_air, report.warships_in_water, report.timestamp
     );
 

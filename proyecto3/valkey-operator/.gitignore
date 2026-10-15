@@ -1,0 +1,20 @@
+# Binarios locales descargados por el Makefile y el Operator SDK (Muy importante)
+bin/
+
+# Archivos temporales o de compilacion de Go
+*.o
+*.out
+*.exe
+*.test
+*.prof
+
+# Archivos empaquetados de Helm (si llegaras a generar charts compilados .tgz)
+*.tgz
+*.prov
+
+# Directorios de datos locales de Kubernetes o Minikube (si estuvieran dentro del proyecto)
+.cache/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db

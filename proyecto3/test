@@ -1,0 +1,6 @@
+curl -X POST "http://127.0.0.1:8080/report" -H "Content-Type: application/json" -d '{"country": "USA", "warplanes_in_air": 150, "warships_in_water": 75, "timestamp": "2026-10-14T22:46:10Z"}'
+curl -X POST "http://127.0.0.1:8080/report" -H "Content-Type: application/json" -d '{"country": "GTM", "warplanes_in_air": 12, "warships_in_water": 8, "timestamp": "2026-10-14T22:45:00Z"}'
+curl -X POST "http://127.0.0.1:8080/report" -H "Content-Type: application/json" -d '{"country": "RUS", "warplanes_in_air": 90, "warships_in_water": 45, "timestamp": "2026-10-14T22:47:20Z"}'
+curl -X POST "http://127.0.0.1:8080/report" -H "Content-Type: application/json" -d '{"country": "CHN", "warplanes_in_air": 110, "warships_in_water": 60, "timestamp": "2026-10-14T22:48:30Z"}'
+
+curl -X POST "http://127.0.0.1:8080/report" -H "Content-Type: application/json" -d '{"country": "ESP", "warplanes_in_air": 35, "warships_in_water": 20, "timestamp": "2026-10-14T22:49:40Z"}'
