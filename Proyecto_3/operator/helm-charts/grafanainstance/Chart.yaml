@@ -1,0 +1,6 @@
+apiVersion: v2
+name: grafanainstance
+description: A Helm chart for Grafana with Redis datasource
+type: application
+version: 0.1.0
+appVersion: "10.4.0"

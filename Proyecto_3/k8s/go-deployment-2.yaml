@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-d2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: go-d2
+  template:
+    metadata:
+      labels:
+        app: go-d2
+    spec:
+      containers:
+      # Contenedor 1: Servidor gRPC (Puerto 50051)
+      - name: grpc-server
+        image: localhost:5001/go-d2-grpc:v3
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 50051
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "64Mi"
+      # Contenedor 2: Sidecar de RabbitMQ (Puerto 8082)
+      - name: rabbit-sidecar
+        image: localhost:5001/go-d2-sidecar:v2
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8082
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "64Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-d2-service
+spec:
+  selector:
+    app: go-d2
+  ports:
+  - port: 50051
+    targetPort: 50051

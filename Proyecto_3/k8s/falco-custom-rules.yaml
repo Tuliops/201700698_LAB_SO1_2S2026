@@ -1,0 +1,9 @@
+customRules:
+  custom-rules.yaml: |-
+    # Tu regla personalizada
+    - rule: Alerta M.U.M.N.K8s - Lectura de /etc/shadow
+      desc: Detecta intentos de lectura de /etc/shadow desde el contenedor de Rust
+      condition: evt.type = openat and container.name = rust-api and fd.name = /etc/shadow
+      output: "ALERTA DE SEGURIDAD M.U.M.N.K8s: El contenedor %container.name (pod %k8s.pod.name) intentó leer %fd.name"
+      priority: CRITICAL
+      tags: [mumnk8s, security, mitre_credential_access]

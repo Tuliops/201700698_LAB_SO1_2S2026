@@ -1,0 +1,32 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: military-gateway
+  namespace: default
+spec:
+  gatewayClassName: eg
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: rust-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: military-gateway
+  rules:
+  - matches:
+    - path:
+        type: Exact
+        value: /grpc-201700698  # Ruta exacta
+    backendRefs:
+    - name: rust-api-service
+      port: 8080
+      

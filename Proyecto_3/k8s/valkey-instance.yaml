@@ -1,0 +1,7 @@
+apiVersion: cache.mumnk8s.local/v1alpha1
+kind: ValkeyInstance
+metadata:
+  name: my-valkey
+  namespace: default
+spec:
+  replicaCount: 1

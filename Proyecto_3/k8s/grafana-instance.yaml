@@ -1,0 +1,7 @@
+apiVersion: monitoring.mumnk8s.local/v1alpha1
+kind: GrafanaInstance
+metadata:
+  name: my-grafana
+  namespace: default
+spec:
+  replicaCount: 1

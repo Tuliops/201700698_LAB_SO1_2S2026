@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-grafana-datasource
+  labels:
+    app: {{ .Release.Name }}-grafana
+data:
+  valkey-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Valkey
+      type: redis-datasource
+      access: proxy
+      url: redis://{{ .Values.valkeyHost }}
+      isDefault: true
+      jsonData:
+        client: standalone
+        poolSize: 5
